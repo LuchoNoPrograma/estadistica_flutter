@@ -1,132 +1,106 @@
-import 'package:calculadoraestadistica/widgets/result_card.dart';
 import 'package:flutter/material.dart';
+import 'dart:math';
+import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
-import '../utils/math.dart';
-
-class HypergeometricCalculatorScreen extends StatefulWidget {
+class HyperGeometricCalculatorScreen extends StatefulWidget {
   @override
-  _HypergeometricCalculatorScreenState createState() =>
-      _HypergeometricCalculatorScreenState();
+  _HyperGeometricCalculatorScreenState createState() =>
+      _HyperGeometricCalculatorScreenState();
 }
 
-class _HypergeometricCalculatorScreenState
-    extends State<HypergeometricCalculatorScreen> {
-  final TextEditingController _nController = TextEditingController(); // Tamaño de la población
-  final TextEditingController _kController = TextEditingController(); // Éxitos en la población
-  final TextEditingController _sampleSizeController = TextEditingController(); // Tamaño de la muestra
-  final TextEditingController _xController = TextEditingController(); // Éxitos en la muestra
+class _HyperGeometricCalculatorScreenState
+    extends State<HyperGeometricCalculatorScreen> {
+  final TextEditingController _nController = TextEditingController();
+  final TextEditingController _kController = TextEditingController();
+  final TextEditingController _NController = TextEditingController();
+  final TextEditingController _KController = TextEditingController();
 
-  String? _formulaProbabilidad;
-  String? _resultadoProbabilidad;
+  List<ChartData> _graphPoints = [];
+  List<TableRow> _tablaResultados = [];
 
-  // Función para calcular el factorial
-  int factorial(int n) => n <= 1 ? 1 : n * factorial(n - 1);
-
-  // Función para calcular combinaciones (binomio)
-  int combinacion(int n, int r) =>
-      factorial(n) ~/ (factorial(r) * factorial(n - r));
-
-  void _calcular() {
-    final N = int.tryParse(_nController.text);
-    final K = int.tryParse(_kController.text);
-    final n = int.tryParse(_sampleSizeController.text);
-    final x = int.tryParse(_xController.text);
-
-    if (N != null && K != null && n != null && x != null &&
-        x <= n && x <= K && n <= N) {
-      // Fórmula de probabilidad
-      final probabilidad = combinacion(K, x) *
-          combinacion(N - K, n - x) /
-          combinacion(N, n);
-
-      setState(() {
-        _formulaProbabilidad = r"P(X = x) = \frac{\binom{" +
-            K.toString() +
-            r"}{" +
-            x.toString() +
-            r"} \cdot \binom{" +
-            (N - K).toString() +
-            r"}{" +
-            (n - x).toString() +
-            r"}}{\binom{" +
-            N.toString() +
-            r"}{" +
-            n.toString() +
-            r"}}";
-
-        _resultadoProbabilidad = formatNumber(probabilidad);
-      });
-    } else {
-      setState(() {
-        _formulaProbabilidad = null;
-        _resultadoProbabilidad = null;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, ingresa valores válidos.')),
-      );
-    }
+  double _factorial(int num) {
+    if (num <= 1) return 1.0;
+    return num * _factorial(num - 1);
   }
 
-  void _showHelpModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Distribución Hipergeométrica',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'La distribución hipergeométrica modela la probabilidad de obtener un número determinado de éxitos en una muestra tomada sin reemplazo de una población finita.',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Fórmula:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Math.tex(
-                  r"P(X = x) = \frac{\binom{K}{x} \cdot \binom{N-K}{n-x}}{\binom{N}{n}}",
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Donde:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '- \(N\): Tamaño de la población.\n'
-                      '- \(K\): Número de éxitos en la población.\n'
-                      '- \(n\): Tamaño de la muestra.\n'
-                      '- \(x\): Número de éxitos en la muestra.',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.close),
-                    label: const Text('Cerrar'),
-                  ),
-                ),
-              ],
+  double _combination(int n, int k) {
+    if (k > n) return 0;
+    return _factorial(n) / (_factorial(k) * _factorial(n - k));
+  }
+
+  void _calcular() {
+    final N = int.tryParse(_NController.text);
+    final K = int.tryParse(_KController.text);
+    final n = int.tryParse(_nController.text);
+
+    if (N == null || K == null || n == null || N <= 0 || K <= 0 || n <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, ingresa valores válidos para N, r y n.'),
+        ),
+      );
+      return;
+    }
+
+    List<ChartData> points = [];
+    List<TableRow> tabla = [
+      const TableRow(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'k',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
           ),
-        );
-      },
-    );
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'P(X = k)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    ];
+
+    for (int k = 0; k <= n; k++) {
+      if (k > K || (n - k) > (N - K)) continue;
+
+      final numerator = _combination(K, k) * _combination(N - K, n - k);
+      final denominator = _combination(N, n);
+      final probability = numerator / denominator;
+
+      points.add(ChartData(k, probability));
+      tabla.add(
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                '$k',
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                probability.toStringAsFixed(4),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    setState(() {
+      _graphPoints = points;
+      _tablaResultados = tabla;
+    });
   }
 
   @override
@@ -140,46 +114,107 @@ class _HypergeometricCalculatorScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextField(
+                controller: _NController,
+                decoration: const InputDecoration(
+                  labelText: 'Tamaño total de la población (N)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: _KController,
+                decoration: const InputDecoration(
+                  labelText: 'Número de elementos deseados en la población (r)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
                 controller: _nController,
-                decoration: const InputDecoration(labelText: 'Tamaño de la población (N)'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: _kController,
-                decoration: const InputDecoration(labelText: 'Éxitos en la población (K)'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: _sampleSizeController,
-                decoration: const InputDecoration(labelText: 'Tamaño de la muestra (n)'),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: _xController,
-                decoration: const InputDecoration(labelText: 'Éxitos en la muestra (x)'),
+                decoration: const InputDecoration(
+                  labelText: 'Tamaño de la muestra (n)',
+                ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                  onPressed: _calcular,
-                  icon: const Icon(Icons.calculate),
-                  label: const Text('Calcular')),
+                onPressed: _calcular,
+                icon: const Icon(Icons.calculate),
+                label: const Text('Calcular'),
+              ),
               const SizedBox(height: 20),
-              if (_formulaProbabilidad != null)
-                ResultCard(
-                  title: 'Probabilidad:',
-                  formula: _formulaProbabilidad!,
-                  result: _resultadoProbabilidad!,
+              const Text(
+                'Modelado de distribución hipergeométrica',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 10),
+              if (_graphPoints.isNotEmpty)
+                SizedBox(
+                  height: 300,
+                  child: SfCartesianChart(
+                    primaryXAxis: const CategoryAxis(),
+                    primaryYAxis: const NumericAxis(),
+                    trackballBehavior: TrackballBehavior(
+                      enable: true,
+                      activationMode: ActivationMode.singleTap,
+                      tooltipSettings: const InteractiveTooltip(
+                        color: Colors.indigo,
+                        textStyle: TextStyle(color: Colors.white),
+                        format: 'k: point.x, P(X = k): point.y',
+                      ),
+                    ),
+                    zoomPanBehavior: ZoomPanBehavior(
+                      enablePinching: true,
+                      zoomMode: ZoomMode.xy,
+                      enablePanning: true,
+                    ),
+                    series: <CartesianSeries>[
+                      ColumnSeries<ChartData, int>(
+                        dataSource: _graphPoints,
+                        xValueMapper: (ChartData data, _) => data.x,
+                        yValueMapper: (ChartData data, _) => data.y,
+                        color: Colors.indigo,
+                      ),
+                    ],
+                  ),
                 ),
               const SizedBox(height: 20),
-              OutlinedButton.icon(
-                  onPressed: _showHelpModal,
-                  icon: const Icon(Icons.help_outline),
-                  label: const Text("Ayuda")),
+              if (_tablaResultados.isNotEmpty)
+                Center(
+                  child: Card(
+                    margin: const EdgeInsets.all(16.0),
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Tabla de Probabilidades',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Table(
+                            border: TableBorder.all(),
+                            children: _tablaResultados,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class ChartData {
+  final int x;
+  final double y;
+
+  ChartData(this.x, this.y);
 }

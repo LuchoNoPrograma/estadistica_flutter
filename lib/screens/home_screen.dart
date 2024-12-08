@@ -1,4 +1,5 @@
 import 'package:calculadoraestadistica/screens/geometric_calculator_screen.dart';
+import 'package:calculadoraestadistica/screens/hipergeometric_calculator_screen.dart';
 import 'package:flutter/material.dart';
 import 'binomial_calculator_screen.dart';
 import 'poisson_calculator_screen.dart';
@@ -53,7 +54,7 @@ class HomeScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => GeometricCalculatorScreen()),
+                  MaterialPageRoute(builder: (context) => HyperGeometricCalculatorScreen()),
                 );
               },
             ),

@@ -3,8 +3,6 @@ import 'dart:math';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
-import '../utils/math.dart';
-
 class BinomialCalculatorScreen extends StatefulWidget {
   @override
   _BinomialCalculatorScreenState createState() =>
@@ -16,6 +14,7 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
   final TextEditingController _pController = TextEditingController();
 
   List<ChartData> _graphPoints = [];
+  List<TableRow> _tablaResultados = [];
   String? _errorMessage;
   double? _media;
   double? _varianza;
@@ -29,20 +28,42 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
 
     if (n == null || p == null || p < 0 || p > 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Por favor, ingresa valores válidos para n y p.')),
+        const SnackBar(content: Text('Por favor, ingresa valores válidos para n y p.')),
       );
       return;
     }
 
-    // Validación para asegurarse de que n esté entre 1 y 170
     if (n <= 0 || n > 170) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('El valor de n debe ser mayor que 0 y menor o igual a 170.')),
+        const SnackBar(content: Text('El valor de n debe ser mayor que 0 y menor o igual a 170.')),
       );
       return;
     }
 
     List<ChartData> points = [];
+    List<TableRow> tabla = [
+      const TableRow(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'k',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Probabilidad',
+              style: TextStyle(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    ];
+
     double maxProbabilidad = 0;
     int maxK = 0;
 
@@ -50,28 +71,37 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
       final combinatoria = _factorial(n) / (_factorial(x) * _factorial(n - x));
       final probabilidad = combinatoria * pow(p, x) * pow(1 - p, n - x);
       points.add(ChartData(x, probabilidad));
+      tabla.add(
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text('$x', textAlign: TextAlign.center),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(probabilidad.toStringAsFixed(4), textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      );
 
-      // Encontrar la probabilidad máxima
       if (probabilidad > maxProbabilidad) {
         maxProbabilidad = probabilidad;
-        maxK = x;  // Guardar el valor de k correspondiente
+        maxK = x;
       }
     }
 
-    // Calcular media, varianza y desviación estándar
-    _media = n * p;
-    _varianza = n * p * (1 - p);
-    _desviacionEstandar = sqrt(_varianza!);
-
-    // Guardar la probabilidad más alta y k correspondiente
-    _probabilidadMaxima = maxProbabilidad;
-    _kMaxProbabilidad = maxK;
-
     setState(() {
       _graphPoints = points;
+      _tablaResultados = tabla;
+      _media = n * p;
+      _varianza = n * p * (1 - p);
+      _desviacionEstandar = sqrt(_varianza!);
+      _probabilidadMaxima = maxProbabilidad;
+      _kMaxProbabilidad = maxK;
     });
   }
-
 
   double _factorial(int k) {
     if (k <= 0) return 1;
@@ -94,16 +124,13 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
             children: [
               TextField(
                 controller: _nController,
-                decoration:
-                const InputDecoration(labelText: 'Número de ensayos (n)'),
+                decoration: const InputDecoration(labelText: 'Número de ensayos (n)'),
                 keyboardType: TextInputType.number,
               ),
               TextField(
                 controller: _pController,
-                decoration: const InputDecoration(
-                    labelText: 'Probabilidad de éxito (p)'),
-                keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Probabilidad de éxito (p)'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
@@ -117,16 +144,6 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 10),
-              // Texto informativo sobre la gráfica
-              const Text(
-                'Puedes acercar con los dedos o desplazar horizontalmente para ver más detalles.',
-                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Presiona un punto de la gráfica para ver más detalles.',
-                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-              ),
               if (_graphPoints.isNotEmpty)
                 SizedBox(
                   height: 300,
@@ -135,16 +152,17 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
                     primaryYAxis: const NumericAxis(),
                     trackballBehavior: TrackballBehavior(
                       enable: true,
-                      activationMode: ActivationMode.singleTap,  // Modo de activación
+                      activationMode: ActivationMode.singleTap,
                       tooltipSettings: const InteractiveTooltip(
                         color: Colors.indigo,
-                        textStyle: TextStyle(color: Colors.white), format: 'k: point.x, Probabilidad: point.y'
+                        textStyle: TextStyle(color: Colors.white),
+                        format: 'k: point.x, Probabilidad: point.y',
                       ),
                     ),
                     zoomPanBehavior: ZoomPanBehavior(
-                      enablePinching: true,  // Habilitar zoom con pellizco
-                      zoomMode: ZoomMode.xy,  // Permite el zoom en ambos ejes
-                      enablePanning: true,  // Habilitar desplazamiento
+                      enablePinching: true,
+                      zoomMode: ZoomMode.xy,
+                      enablePanning: true,
                     ),
                     series: <CartesianSeries>[
                       LineSeries<ChartData, int>(
@@ -152,7 +170,7 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
                         xValueMapper: (ChartData data, _) => data.x,
                         yValueMapper: (ChartData data, _) => data.y,
                         markerSettings: const MarkerSettings(isVisible: true),
-                        color: Colors.indigo, // Color de la línea de la gráfica
+                        color: Colors.indigo,
                       ),
                     ],
                   ),
@@ -161,41 +179,51 @@ class _BinomialCalculatorScreenState extends State<BinomialCalculatorScreen> {
               if (_media != null)
                 Center(
                   child: Card(
-                    margin: const EdgeInsets.all(16.0),  // Margen alrededor de la Card
-                    elevation: 4,  // Sombra de la Card
+                    margin: const EdgeInsets.all(16.0),
+                    elevation: 4,
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),  // Padding interno de la Card
+                      padding: const EdgeInsets.all(16.0),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,  // Centra el contenido verticalmente
-                        crossAxisAlignment: CrossAxisAlignment.center,  // Centra el contenido horizontalmente
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Math.tex(
-                            r'\text{Media(} μ \text{)} = ' + formatNumber(_media!),
+                            r'\text{Media(} μ \text{)} = ' + _media!.toStringAsFixed(2),
                             textStyle: const TextStyle(fontSize: 16),
                           ),
-                          SizedBox(height: 8),  // Espacio entre las fórmulas
+                          const SizedBox(height: 8),
                           Math.tex(
-                            r'\text{Varianza =}\sigma^2 = ' + formatNumber(_varianza!),
+                            r'\text{Varianza(σ²)} = ' + _varianza!.toStringAsFixed(2),
                             textStyle: const TextStyle(fontSize: 16),
                           ),
-                          SizedBox(height: 8),  // Espacio entre las fórmulas
+                          const SizedBox(height: 8),
                           Math.tex(
-                            r'\text{Desviación estándar}= \sqrt{\sigma^2} = ' + formatNumber(_desviacionEstandar!),
+                            r'\text{Desviación estándar(σ)} = ' +
+                                _desviacionEstandar!.toStringAsFixed(2),
                             textStyle: const TextStyle(fontSize: 16),
                           ),
-                          SizedBox(height: 8),  // Espacio entre las fórmulas
+                          const SizedBox(height: 8),
                           Math.tex(
-                            r'\text{Mayor probabilidad: } ' +
-                                formatNumber(_probabilidadMaxima!)+
-                                r' \ \text{para} \ k = ' +
-                                '$_kMaxProbabilidad',
+                            r'\text{Mayor probabilidad} = ' +
+                                _probabilidadMaxima!.toStringAsFixed(4) +
+                                r'\ \text{para } k = ' +
+                                _kMaxProbabilidad.toString(),
                             textStyle: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Tabla de Probabilidades',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 10),
+                          Table(
+                            border: TableBorder.all(),
+                            children: _tablaResultados,
                           ),
                         ],
                       ),
                     ),
                   ),
-                )
+                ),
             ],
           ),
         ),

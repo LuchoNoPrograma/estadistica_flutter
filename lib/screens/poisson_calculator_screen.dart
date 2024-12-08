@@ -1,144 +1,74 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_math_fork/flutter_math.dart'; // Importar para formato matemático
 import 'dart:math';
-
-import '../utils/math.dart';
-import '../widgets/result_card.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 
 class PoissonCalculatorScreen extends StatefulWidget {
   @override
-  _PoissonCalculatorScreenState createState() =>
-      _PoissonCalculatorScreenState();
+  _PoissonCalculatorScreenState createState() => _PoissonCalculatorScreenState();
 }
 
 class _PoissonCalculatorScreenState extends State<PoissonCalculatorScreen> {
-  final TextEditingController _lambdaController = TextEditingController();
-  final TextEditingController _xController = TextEditingController();
+  final TextEditingController _muController = TextEditingController();
+  final TextEditingController _kController = TextEditingController();
 
-  String? _formulaProbabilidad;
-  String? _resultadoProbabilidad;
-  String? _formulaVarianza;
-  String? _formulaDesviacion;
+  List<ChartData> _graphPoints = [];
+  List<ChartData> _areaPoints = [];
+  double? _varianza;
+  double? _probabilidadMaxima;
+  int? _kMaxProbabilidad;
 
   void _calcular() {
-    final lambda = double.tryParse(_lambdaController.text);
-    final x = int.tryParse(_xController.text);
+    final mu = double.tryParse(_muController.text);
+    final k = int.tryParse(_kController.text);
 
-    if (lambda != null && lambda > 0 && x != null && x >= 0) {
-      final probabilidad = (pow(lambda, x) * exp(-lambda)) / _factorial(x);
-
-      final varianza = lambda;
-      final desviacionEstandar = sqrt(varianza);
-
-      setState(() {
-        _formulaProbabilidad =
-            r"P(X = x) = \frac{\lambda^x e^{-\lambda}}{x!} = \frac{" +
-                lambda.toString() +
-                r"^" +
-                x.toString() +
-                r" \cdot e^{-" +
-                lambda.toString() +
-                r"}}{" +
-                x.toString() +
-                r"!}=";
-
-        _resultadoProbabilidad = formatNumber(probabilidad) +
-            r"\approx " +
-            formatNumber(probabilidad * 100) +
-            r"\%";
-
-        _formulaVarianza = r"\sigma^2 = \lambda = " + formatNumber(varianza);
-
-        _formulaDesviacion = r"\sigma = \sqrt{\lambda} = \sqrt{" +
-            formatNumber(varianza) +
-            r"} = " +
-            formatNumber(desviacionEstandar);
-      });
-    } else {
-      setState(() {
-        _formulaProbabilidad = null;
-        _resultadoProbabilidad = null;
-        _formulaVarianza = null;
-        _formulaDesviacion = null;
-      });
+    if (mu == null || mu <= 0 || k == null || k < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, ingresa valores válidos.')),
+        const SnackBar(
+          content: Text('Por favor, ingresa valores válidos para μ y k.'),
+        ),
       );
+      return;
     }
+
+    List<ChartData> points = [];
+    List<ChartData> areaPoints = [];
+    double maxProbabilidad = 0;
+    int maxK = 0;
+
+    for (int x = 0; x <= k; x++) {
+      final probabilidad = (pow(mu, x) * exp(-mu)) / factorial(x);
+      points.add(ChartData(x, probabilidad));
+      areaPoints.add(ChartData(x, probabilidad));
+
+      if (probabilidad > maxProbabilidad) {
+        maxProbabilidad = probabilidad;
+        maxK = x;
+      }
+    }
+
+    setState(() {
+      _graphPoints = points;
+      _areaPoints = areaPoints;
+      _varianza = mu; // En Poisson, varianza = μ
+      _probabilidadMaxima = maxProbabilidad;
+      _kMaxProbabilidad = maxK;
+    });
   }
 
-  int _factorial(int num) {
-    if (num <= 1) return 1;
-    return num * _factorial(num - 1);
-  }
-
-  void _showHelpModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Distribución de Poisson',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'La distribución de Poisson describe el número de eventos que ocurren en un intervalo '
-                  'fijo de tiempo o espacio, siempre que estos eventos ocurran con una tasa promedio conocida '
-                  'y de forma independiente unos de otros.',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Fórmula:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Math.tex(
-                  r"P(X = x) = \frac{\lambda^x e^{-\lambda}}{x!}",
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Donde:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '- P(X = x): Probabilidad de observar exactamente x eventos.\n'
-                  '- λ (lambda): Tasa promedio de eventos por intervalo.\n'
-                  '- x: Número de eventos observados.\n'
-                  '- e: Constante matemática (~2.718).',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.close),
-                    label: const Text('Cerrar'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  double factorial(int k) {
+    if (k <= 0) return 1;
+    double result = 1;
+    for (int i = 1; i <= k; i++) {
+      result *= i;
+    }
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Distribución Poisson')),
+      appBar: AppBar(title: const Text('Distribución de Poisson')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -146,55 +76,115 @@ class _PoissonCalculatorScreenState extends State<PoissonCalculatorScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextField(
-                controller: _lambdaController,
-                decoration:
-                    const InputDecoration(labelText: 'Tasa promedio (λ)'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                controller: _muController,
+                decoration: const InputDecoration(labelText: 'Número esperado (μ)'),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
               ),
               TextField(
-                controller: _xController,
-                decoration:
-                    const InputDecoration(labelText: 'Número de eventos (x)'),
+                controller: _kController,
+                decoration: const InputDecoration(labelText: 'Número máximo de éxitos (k)'),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                  onPressed: _calcular,
-                  icon: const Icon(Icons.calculate),
-                  label: const Text('Calcular')
+                onPressed: _calcular,
+                icon: const Icon(Icons.calculate),
+                label: const Text('Calcular'),
               ),
               const SizedBox(height: 20),
-              if (_formulaProbabilidad != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ResultCard(
-                      title: 'Probabilidad:',
-                      formula: _formulaProbabilidad!,
-                      result: _resultadoProbabilidad!,
-                    ),
-                    ResultCard(
-                      title: 'Varianza:',
-                      formula: _formulaVarianza!,
-                      result: "",
-                    ),
-                    ResultCard(
-                      title: 'Desviación Estándar:',
-                      formula: _formulaDesviacion!,
-                      result: "",
-                    ),
-                  ],
+              const Text(
+                'Modelado de distribución Poisson',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              if (_graphPoints.isNotEmpty)
+                SizedBox(
+                  height: 300,
+                  child: SfCartesianChart(
+                    primaryXAxis: NumericAxis(title: AxisTitle(text: 'k')),
+                    primaryYAxis: NumericAxis(title: AxisTitle(text: 'Probabilidad')),
+                    series: <CartesianSeries>[
+                      // Área debajo de la curva
+                      ColumnSeries<ChartData, int>(
+                        dataSource: _areaPoints,
+                        xValueMapper: (ChartData data, _) => data.x,
+                        yValueMapper: (ChartData data, _) => data.y,
+                        color: Colors.indigo.withOpacity(0.5),
+                      ),
+                      // Línea de la función de Poisson
+                      LineSeries<ChartData, int>(
+                        dataSource: _graphPoints,
+                        xValueMapper: (ChartData data, _) => data.x,
+                        yValueMapper: (ChartData data, _) => data.y,
+                        markerSettings: const MarkerSettings(isVisible: true),
+                        color: Colors.indigo,
+                      ),
+                    ],
+                  ),
                 ),
-              const SizedBox(height: 20),
-              OutlinedButton.icon(
-                  onPressed: _showHelpModal,
-                  icon: const Icon(Icons.help_outline),
-                  label: const Text("Ayuda")
-              ),
+              if (_varianza != null)
+                Center(
+                  child: Card(
+                    margin: const EdgeInsets.all(16.0),
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Math.tex(
+                            r'\text{Varianza (σ²)} = ' + _varianza!.toStringAsFixed(2),
+                            textStyle: const TextStyle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          Math.tex(
+                            r'\text{Mayor probabilidad: } ' +
+                                _probabilidadMaxima!.toStringAsFixed(4) +
+                                r' \ \text{para } k = ' +
+                                '$_kMaxProbabilidad',
+                            textStyle: const TextStyle(fontSize: 16),
+                          ),
+
+                          // Tabla de valores
+                          const SizedBox(height: 20),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Tabla de probabilidades',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              DataTable(
+                                columns: const [
+                                  DataColumn(label: Text('k')),
+                                  DataColumn(label: Text('Probabilidad')),
+                                ],
+                                rows: _graphPoints.map((data) {
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text(data.x.toString())),
+                                      DataCell(Text(data.y.toStringAsFixed(4))),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class ChartData {
+  final int x;
+  final double y;
+
+  ChartData(this.x, this.y);
 }
